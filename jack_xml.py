@@ -37,16 +37,32 @@ class XML:
 
     def display(self):
         """Returns a string representation of the XML content"""
+        
+
+            
+
         if self.is_string_content():
-            return f"<{self.tag}> {self.content} </{self.tag}>"
+            xml_safe_content = self.content
+            match self.content:
+                case '<':
+                    xml_safe_content = '&lt;'
+                case '>':
+                    xml_safe_content = '&gt;'
+                case '"':
+                    xml_safe_content = 'quot;'
+                case '&':
+                    xml_safe_content = '&amp;'
+
+            return f"<{self.tag}> {xml_safe_content} </{self.tag}>"
         
         if self.is_xml_content():
-            return f"<{self.tag}> {self.content.display()} </{self.tag}>"
+            return f"<{self.tag}> {self.content.display()} </{self.tag}>\n"
 
         if self.is_xml_list_content():
-            newline = '\n' #Python doesn't allow \n in f-strings directly
-            return f"<{self.tag}> {newline.join([subcontent.display for subcontent in self.content])} </{self.tag}>"
+            children_displayed = '\n\t'.join([subcontent.display() for subcontent in self.content])
+            return f'''<{self.tag}>\n\t{children_displayed}\n</{self.tag}>'''
 
 class XMLError(Exception):
     """Custom exception for XML-related errors."""
     pass
+
