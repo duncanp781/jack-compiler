@@ -9,6 +9,23 @@ class Token:
     
     def toXML(self):
         return jack_xml.XML(self.type, self.content)
+    
+    def checkContent(self, compare):
+        '''
+        Checks if the content of the token matches what is in compare
+
+        compare - a string or a list
+        '''
+        if isinstance(compare, list):
+            return self.content in compare
+        else:
+            return self.content == compare
+    
+    def checkType(self, compare):
+        '''
+        Checks if the type of the token matches what is in compare
+        '''
+        return self.type == compare
 
 class Tokenizer:
     KEYWORDS = frozenset(('class', 'constructor', 'function', 'method', 'field', 'static', 'var', \

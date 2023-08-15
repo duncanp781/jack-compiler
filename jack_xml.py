@@ -5,43 +5,60 @@ This is for implementing the xml syntax used by the tokenizer and parser for the
 """
 
 class XML:
-    def __init__(self, tag, content):
+    def __init__(self, tag, content = None):
         """
         Initializes the object.
         - tag (str): the XML tag name
-        - content: The content inside the XML tag. It can be either a string, another XML object, or a list of XML objects
+        - content: The content inside the XML tag. It can be either a string, another XML object a list of XML objects, or None
         """
         self.tag = tag
         self.content = content 
         
-    def is_string_content(self):
+    def isStringContent(self):
         """Returns whether self.content is a string"""
         return isinstance(self.content, str)
 
-    def is_xml_content(self):
+    def isXmlContent(self):
         """Returns whether self.content is an XML object"""
         return isinstance(self.content, XML)
     
-    def is_xml_list_content(self):
+    def isXmlListContent(self):
         """Returns whether self.content is a list of XMl""" 
         return isinstance(self.content, list) and all(isinstance(item, XML) for item in self.content)
 
-    def add_child(self, child):
-        """Adds a child to the current XML content"""
-        if self.is_string_content():
+    def isNone(self):
+        return self.content == None
+
+    def addChild(self, child):
+        """Adds a child to the current XML content
+        Child can be anything content can be, but adding None will do nothing
+        Children cant be added if the XML holds string content, it will raise an error
+        """
+        if child == None: 
+            return
+        elif self.isNone():
+            self.content = child
+        elif isinstance(child, str) or self.isStringContent():
+            ###Can't add string as a child unless no content
             raise XMLError()
-        elif self.is_xml_content():
-            self.content = [self.content, child]
-        elif self.is_xml_list_content():
-            self.content.append(child)
+        elif self.isXmlContent():
+            if isinstance(child, list):
+                self.content = [self.content] + child
+            else:
+                self.content = [self.content, child]
+        elif self.isXmlListContent():
+            if isinstance(child, list):
+                self.content = self.content + child
+            else:
+                self.content.append(child)
+        elif self.isNone():
+            self.content = child
 
     def display(self):
         """Returns a string representation of the XML content"""
-        
 
-            
-
-        if self.is_string_content():
+        if self.isStringContent():
+            #These symbols aren't able to be rendered by xml in browsers, so we replace them
             xml_safe_content = self.content
             match self.content:
                 case '<':
@@ -55,13 +72,16 @@ class XML:
 
             return f"<{self.tag}> {xml_safe_content} </{self.tag}>"
         
-        if self.is_xml_content():
+        if self.isXmlContent():
             return f"<{self.tag}> {self.content.display()} </{self.tag}>\n"
 
-        if self.is_xml_list_content():
+        if self.isXmlListContent():
             children_displayed = '\n\t'.join([subcontent.display() for subcontent in self.content])
             return f'''<{self.tag}>\n\t{children_displayed}\n</{self.tag}>'''
 
+        if self.isNone():
+            return f"<{self.tag}></{self.tag}>"
+        
 class XMLError(Exception):
     """Custom exception for XML-related errors."""
     pass
