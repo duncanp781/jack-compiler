@@ -25,7 +25,10 @@ class Token:
         '''
         Checks if the type of the token matches what is in compare
         '''
-        return self.type == compare
+        if isinstance(compare, list):
+            return self.type == compare
+        else:
+            return self.content == compare
 
 class Tokenizer:
     KEYWORDS = frozenset(('class', 'constructor', 'function', 'method', 'field', 'static', 'var', \

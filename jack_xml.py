@@ -34,7 +34,7 @@ class XML:
         Child can be anything content can be, but adding None will do nothing
         Children cant be added if the XML holds string content, it will raise an error
         """
-        if child == None: 
+        if child == None or child == []: 
             return
         elif self.isNone():
             self.content = child
