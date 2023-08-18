@@ -25,7 +25,7 @@ class Analyzer:
     
     def test_compiler(self):
         compiler = Compiler(self.file)
-        print(compiler.compileClass().display())
+        return compiler.compileClass()
 
     def process_file(self, file):
         """
@@ -34,7 +34,7 @@ class Analyzer:
         #Matches anything like /** ... */ or /* ... */ (or more *)
         file_lines = file.split("\n")
 
-        filtered_lines =[line.strip() for line in file_lines if not re.match("\/\/.*", line)]
+        filtered_lines =[re.sub("\/\/.*", "", line) for line in file_lines]
         no_singleline_comment = " ".join(filtered_lines)
         no_multiline_comments = re.sub("\/\*+.*?\*\/", "", no_singleline_comment) 
 
@@ -51,7 +51,10 @@ def main():
 
     analyzer = Analyzer(file_content)
     analyzer.process_file(file_content)
-    analyzer.test_compiler()
+    compiled_result = analyzer.test_compiler()
+
+    with open('test.xml', 'w') as f:
+        f.write(compiled_result.display())
 
    # with open('test.xml', 'w') as f:
         #if.write(tokenized_result)

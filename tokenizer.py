@@ -25,10 +25,11 @@ class Token:
         '''
         Checks if the type of the token matches what is in compare
         '''
+        
         if isinstance(compare, list):
             return self.type == compare
         else:
-            return self.content == compare
+            return self.type == compare
 
 class Tokenizer:
     KEYWORDS = frozenset(('class', 'constructor', 'function', 'method', 'field', 'static', 'var', \
@@ -79,7 +80,18 @@ class Tokenizer:
                     if matched in self.KEYWORDS:
                          out.append(Token("keyword", matched))
                     else:
-                        out.append(Token("identifier", matched))
+                        #Split based on the periods in the identifeir 
+                        #E.g., Foo.bar splits to tokens with Foo, ., and bar
+                        last = 0
+                        for j , c in enumerate(matched):
+                            if c == '.':
+                                if last != j:
+                                    out.append(Token(type = "identifier", content = matched[last:i]))
+                                last = j+1
+                                out.append(Token(type = "symbol", content = c))
+                            elif j == len(matched) - 1:
+                                out.append(Token(type = "identifier", content = matched[last:i+1]))
+                        
                     i += len(matched)
                 else:
                     if file[i] != " ":

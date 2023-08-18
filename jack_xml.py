@@ -73,14 +73,14 @@ class XML:
             return f"<{self.tag}> {xml_safe_content} </{self.tag}>"
         
         if self.isXmlContent():
-            return f"<{self.tag}> {self.content.display()} </{self.tag}>\n"
+            return f"<{self.tag}>\n\t {self.content.display()} \n</{self.tag}>"
 
         if self.isXmlListContent():
             children_displayed = '\n\t'.join([subcontent.display() for subcontent in self.content])
-            return f'''<{self.tag}>\n\t{children_displayed}\n</{self.tag}>'''
+            return f'''<{self.tag}>\n\t{children_displayed} \n</{self.tag}>'''
 
         if self.isNone():
-            return f"<{self.tag}></{self.tag}>"
+            return f"<{self.tag}>\n</{self.tag}>"
         
 class XMLError(Exception):
     """Custom exception for XML-related errors."""

@@ -4,7 +4,6 @@ from tokenizer import Tokenizer
 class Compiler:
     def __init__(self, file):
         self.cur_file = file
-        print(file)
         
         tokenizer = Tokenizer(file)
         self.tokens = tokenizer.tokenize(file)
@@ -24,15 +23,14 @@ class Compiler:
 
         if allowEither:
             if content and type and not(token.checkContent(content) or token.checkType(type)):
-                raise CompileError(f"Expected token of type {type} with content {content}, got type {token.type} and content {token.content}")
+                raise CompileError(f"Expected token with either type {type} or content {content}, got type {token.type} and content {token.content}")
         else:
             if content and type and not(token.checkContent(content) and token.checkType(type)):
                 raise CompileError(f"Expected token of type {type} with content {content}, got type {token.type} and content {token.content}")
-        
-        if content and not token.checkContent(content):
-            raise CompileError(f"Expected token with content {content}, got type {token.type} and content {token.content}")
-        elif type and not token.checkType(type): 
-            raise CompileError(f"Expected token of type {type}, got type {token.type} and content {token.content}")
+            if content and not token.checkContent(content):
+                raise CompileError(f"Expected token with content {content}, got type {token.type} and content {token.content}")
+            elif type and not token.checkType(type): 
+                raise CompileError(f"Expected token of type {type}, got type {token.type} and content {token.content}")
         
         parent.addChild(token.toXML())
         self.cur_token_index += 1
@@ -63,6 +61,7 @@ class Compiler:
         Check if the next token is of the specified type, returns a boolean
         '''
         token = self.tokens[self.cur_token_index]
+        print(f"Expecting content = {content} and type = {type}, got content {token.content} and type {token.type}")
         if content and type:
             return token.checkContent(content) and token.checkType(type)
         elif content:
@@ -80,15 +79,9 @@ class Compiler:
         self.expect(type = 'identifier', parent=classXML)
         self.expect(content = '{', parent=classXML)
 
-        has_var_decs = self.check(content = ['static', 'field'])
-        while has_var_decs:
-            classXML.addChild(self.compileClassVarDec())
-            has_var_decs = self.check(content = ['static', 'field'])
+        classXML.addChild(self.compileClassVarDec())
 
-        has_subroutines = self.check(content = ['constructor', 'field', 'method'])
-        while has_subroutines:
-            classXML.addChild(self.compileSubroutine())
-            has_subroutines = self.check(content = ['constructor', 'field', 'method'])
+        classXML.addChild(self.compileSubroutine())
 
         self.expect(content = '}', parent = classXML)
 
@@ -105,7 +98,7 @@ class Compiler:
             varDecXML = jack_xml.XML(tag = "classVarDec")
             self.expect(content = ['static', 'field'], parent = varDecXML)
             self.expectType(varDecXML)
-            self.expect(type = 'identifier') #varName
+            self.expect(type = 'identifier', parent = varDecXML) #varName
 
             #Check if declaring multiple variables
             while self.check(content = ','):
@@ -121,7 +114,7 @@ class Compiler:
     def compileSubroutine(self):
         '''
         Compiles functions, methods, and constructors 
-        Grammar ('constructor'|'function'|'method')('void'|type) subroutineName
+        Grammar ('constructor'|'function'|'method')('void'|type) subroutineName '(' parameterList ')' subroutineBody
         '''
         subroutineDecs = []
 
@@ -137,10 +130,7 @@ class Compiler:
             
             self.expect(type = 'identifier', parent = subroutineDecXML) #subroutineName
 
-            self.expect(content = '(', parent = subroutineDecXML)
-            subroutineDecXML.addChild(self.compileParameterList())
-            self.expect(content = ')')
-
+            self.expectBody(begin = '(', end = ')', interior = self.compileParameterList, parent = subroutineDecXML)
             subroutineDecXML.addChild(self.compileSubroutineBody())
 
             subroutineDecs.append(subroutineDecXML)
@@ -153,15 +143,16 @@ class Compiler:
         '''
         Compiles a (possible empty) parameter list that looks like (...)
         '''
+        
+        parameterListXML = jack_xml.XML(tag = 'parameterList')
         if self.check(content = ['int', 'char', 'boolean']) or self.check(type = 'identifier'):
-            parameterListXML = jack_xml.XML(tag = 'parameterList')
             self.expectType(parameterListXML)
             self.expect(type = 'identifier', parent = parameterListXML)
             while self.check(content = ','):
                 self.expect(content = ',', parent = parameterListXML)
+                self.expectType(parent = parameterListXML)
                 self.expect(type = 'identifier', parent = parameterListXML)
-        else:
-            return None
+        return parameterListXML
 
     def compileSubroutineBody(self):
         '''
@@ -172,7 +163,7 @@ class Compiler:
         self.expect(content = '{', parent = subroutineBodyXML)
         subroutineBodyXML.addChild(self.compileVarDec())
         subroutineBodyXML.addChild(self.compileStatements())
-        self.expect(content = '{', parent = subroutineBodyXML)
+        self.expect(content = '}', parent = subroutineBodyXML)
         return subroutineBodyXML
 
     def compileVarDec(self):
@@ -183,11 +174,13 @@ class Compiler:
         varDecs = []
         while self.check(content = 'var'):
             varDecXML = jack_xml.XML(tag = 'varDec')
+            self.expect(content = 'var', parent = varDecXML)
             self.expectType(varDecXML)
+            self.expect(type = 'identifier', parent = varDecXML)
             while self.check(content = ','):
                 self.expect(content = ',', parent = varDecXML)
                 self.expect(type = 'identifier', parent = varDecXML)
-            self.expect(content = ';')
+            self.expect(content = ';', parent = varDecXML)
             varDecs.append(varDecXML)
         
         return varDecs
@@ -197,22 +190,22 @@ class Compiler:
         '''
         Compiles a sequence of statements
         '''
-        statements = []
+        statements = jack_xml.XML(tag = "statements")
         has_statements = True
 
         while has_statements:
             token = self.tokens[self.cur_token_index]
             match token.content:
                 case 'let':
-                    statements.append(self.compileLet())
+                    statements.addChild(self.compileLet())
                 case 'if':
-                    statements.append(self.compileIf())
+                    statements.addChild(self.compileIf())
                 case 'while':
-                    statements.append(self.compileWhile())
+                    statements.addChild(self.compileWhile())
                 case 'do':
-                    statements.append(self.compileDo())
+                    statements.addChild(self.compileDo())
                 case 'return':
-                    statements.append(self.compileReturn())
+                    statements.addChild(self.compileReturn())
                 case _:
                     has_statements = False
 
@@ -224,7 +217,7 @@ class Compiler:
         '''
         letXML = jack_xml.XML(tag = 'letStatement')
         self.expect(content = 'let', parent = letXML)
-        self.expect(type = 'identifier')
+        self.expect(type = 'identifier', parent = letXML)
         if self.check(content = '['):
             self.expectBody(begin = '[', end = ']', interior = self.compileExpression, parent = letXML)
         self.expect(content = '=', parent = letXML)
@@ -242,7 +235,7 @@ class Compiler:
         self.expectBody(begin = '{', end = '}', interior = self.compileStatements, parent = ifXML)
         if self.check(content = 'else'):
             self.expect(content = 'else', parent = ifXML)
-            self.exepctBody(begin = '{', end = '}', interior = self.compileStatements, parent = ifXML)
+            self.expectBody(begin = '{', end = '}', interior = self.compileStatements, parent = ifXML)
         return ifXML
         
 
@@ -262,9 +255,13 @@ class Compiler:
         '''
         doXML = jack_xml.XML(tag = 'doStatement')
         self.expect(content = 'do', parent = doXML)
-        #EXPECT SUBROUTINE CALL
+        self.expect(type = "identifier", parent = doXML)
+        while self.check(content = "."):
+            self.expect(content = ".", parent = doXML)
+            self.expect(type = "identifier", parent = doXML)
+        self.expectBody(begin = "(" ,end = ")", interior = self.compileExpressionList, parent = doXML)
         self.expect(content = ';', parent = doXML)
-
+        return doXML
 
     def compileReturn(self):
         '''
@@ -283,16 +280,24 @@ class Compiler:
     def compileExpression(self):
         #NOT IMPLEMENTED: Just assumes there is only one identifier
         expressionXML = jack_xml.XML(tag = 'expression')
-        self.expect(type = 'identifier', parent = expressionXML)
+        expressionXML.addChild(self.compileTerm())
         return expressionXML
 
     def compileTerm(self):
         # NOT IMPLEMENTED
-        pass
+        termXML = jack_xml.XML(tag = 'term')
+        self.expect(parent = termXML)
+        return termXML
 
     def compileExpressionList(self):
         #NOT IMPLEMENTED
-        pass
+        expressonListXML = jack_xml.XML(tag = 'expressionList')
+        while not self.check(content = ')'):
+            expressonListXML.addChild(self.compileExpression())
+            while self.check(content = ','):
+                self.expect(content = ',', parent = expressonListXML)
+                expressonListXML.addChild(self.compileExpression())
+        return expressonListXML
 
     #TODO Implement compileExpression, compileTerm, and compileExpressionList
 
