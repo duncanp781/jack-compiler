@@ -5,9 +5,10 @@ Responsible for the file handling, so this is called from the cli, and returns t
 """
 
 import argparse
-import tokenizer
-import jack_xml
 import re
+import os
+import jack_xml
+import tokenizer
 from compiler import Compiler
 
 class Analyzer:
@@ -23,7 +24,7 @@ class Analyzer:
         token_xml = [token.toXML() for token in tokenized]
         return jack_xml.XML("tokens", token_xml).display()
     
-    def test_compiler(self):
+    def compile(self):
         compiler = Compiler(self.file)
         return compiler.compileClass()
 
@@ -39,25 +40,45 @@ class Analyzer:
         no_multiline_comments = re.sub("\/\*+.*?\*\/", "", no_singleline_comment) 
 
         return no_multiline_comments
+    
+def compileFile(file_path):
+    """Processes a .jack file"""
+    with open(file_path, 'r') as f: 
+        analyzer = Analyzer(f.read())
+    
+    out_file_path = os.path.splittext(file_path)[0] + '.xml'
+    with open(out_file_path, 'w') as o:
+        o.write(analyzer.compile())
  
 def main():
-    parser = argparse.ArgumentParser(description="Process an input file.")
+    parser = argparse.ArgumentParser(description="Process .jack files")
     parser.add_argument('filename', help="The name of the file to process")
 
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-f', '--file', help='Path to a .jack file.', type=str)
+    group.add_argument('-d', '--directory', help='Path to directory containing .jack files.', type=str)
+
     args = parser.parse_args()
+
+    if args.file:
+        # If a file path is provided, check if it's a .jack file.
+        if args.file.endswith('.jack'):
+            compileFile(args.file)
+        else:
+            print(f"{args.file} is not a .jack file. Skipping.")
+    elif args.directory:
+        # If a directory path is provided, process all .jack files in that directory.
+        if os.path.isdir(args.directory):
+            for root, dirs, files in os.walk(args.directory):
+                for file in files:
+                    if file.endswith('.jack'):
+                        compileFile(os.path.join(root, file))
+        else:
+            print(f"{args.directory} is not a valid directory. Exiting.")
 
     with open(args.filename, 'r') as f:
         file_content = f.read()
 
-    analyzer = Analyzer(file_content)
-    analyzer.process_file(file_content)
-    compiled_result = analyzer.test_compiler()
-
-    with open('test.xml', 'w') as f:
-        f.write(compiled_result.display())
-
-   # with open('test.xml', 'w') as f:
-        #if.write(tokenized_result)
 
 if __name__ == "__main__":
     main()

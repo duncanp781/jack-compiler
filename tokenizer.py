@@ -27,7 +27,7 @@ class Token:
         '''
         
         if isinstance(compare, list):
-            return self.type == compare
+            return self.type in compare
         else:
             return self.type == compare
 

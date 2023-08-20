@@ -61,13 +61,13 @@ class Compiler:
         Check if the next token is of the specified type, returns a boolean
         '''
         token = self.tokens[self.cur_token_index]
-        print(f"Expecting content = {content} and type = {type}, got content {token.content} and type {token.type}")
+        #print(f"Expecting content = {content} and type = {type}, got content {token.content} and type {token.type}")
         if content and type:
             return token.checkContent(content) and token.checkType(type)
         elif content:
             return token.checkContent(content)
         elif type: 
-            return token.checkType(content)
+            return token.checkType(type)
 
 
     def compileClass(self):
@@ -281,16 +281,52 @@ class Compiler:
         #NOT IMPLEMENTED: Just assumes there is only one identifier
         expressionXML = jack_xml.XML(tag = 'expression')
         expressionXML.addChild(self.compileTerm())
+        if self.check(content = ['+', '-', '*', '/', '&', '|', '<', '>', '=']):
+            self.expect(type = 'symbol', parent = expressionXML)
+            expressionXML.addChild(self.compileTerm())
         return expressionXML
 
     def compileTerm(self):
-        # NOT IMPLEMENTED
+        '''
+        Compiles a term.
+
+        Grammar: integerConstant | stringConstant | ['true','false','null','this'] | varName | varName[expression] | subroutineCall | (expression) | ['-','~'] term
+
+        subroutineCall: subroutineName(expressionList) | (className | varName).subroutineName(expressionList)
+        '''
         termXML = jack_xml.XML(tag = 'term')
-        self.expect(parent = termXML)
+        #Check if is (expression)
+        if self.check(content = '('):
+            self.expectBody(begin = '(', end = ')', interior = self.compileExpression, parent = termXML)
+        #Check types of identifiers
+        elif self.check(type = 'identifier'):
+            self.expect(type = 'identifier', parent = termXML)
+            if self.check(content = '['):
+                self.expectBody(begin = '[', end = ']', interior = self.compileExpression, parent = termXML)
+            else :
+                #A varName can't have a . in it, so only allow that if we are doing a function call - error otherwise
+                hasPeriod = False
+                while self.check(content = '.'):
+                    hasPeriod = True
+                    self.expect(content = '.', parent = termXML)
+                    self.expect(type = 'identifier', parent = termXML)
+                if hasPeriod or self.check(content = '('):
+                    self.expectBody(begin = '(', end = ')', interior = self.compileExpressionList, parent = termXML)
+        #Check for unaryOp Term
+        elif self.check(content = ['-', '~']):
+            self.expect(type = 'symbol', parent = termXML)
+            termXML.addChild(self.compileTerm())
+        #Check for keywordConstant
+        elif self.check(content = ['true','false','null','this']):
+            self.expect(content = ['true','false','null','this'], parent = termXML)
+        else:
+            self.expect(type = ['integerConstant', 'stringConstant'], parent = termXML)
         return termXML
 
     def compileExpressionList(self):
-        #NOT IMPLEMENTED
+        '''
+        Compile a list of expressions
+        '''
         expressonListXML = jack_xml.XML(tag = 'expressionList')
         while not self.check(content = ')'):
             expressonListXML.addChild(self.compileExpression())
@@ -299,7 +335,6 @@ class Compiler:
                 expressonListXML.addChild(self.compileExpression())
         return expressonListXML
 
-    #TODO Implement compileExpression, compileTerm, and compileExpressionList
 
 class CompileError(Exception):
     pass
